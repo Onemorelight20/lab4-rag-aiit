@@ -5,14 +5,14 @@ This project implements a Retrieval-Augmented Generation (RAG) system using Stre
 ## Prerequisites
 
 1.  **Ollama**: Ensure Ollama is installed and running.
-2.  **Model**: Pull the Llama 3.1 model:
+2.  **Model**: Pull the Llama 3.1 model (or your configured model):
     ```bash
     ollama pull llama3.1:8b
     ```
 
 ## Installation
 
-1.  Create a virtual environment (if not already active):
+1.  Create a virtual environment:
     ```bash
     python3 -m venv venv
     source venv/bin/activate
@@ -21,6 +21,17 @@ This project implements a Retrieval-Augmented Generation (RAG) system using Stre
     ```bash
     pip install -r requirements.txt
     ```
+3.  **Configuration**:
+    Copy `.env.example` to `.env` and adjust settings if needed:
+    ```bash
+    cp .env.example .env
+    ```
+    
+    **Available Settings**:
+    - `LLM_MODEL`: Model name (default: `llama3.1:8b`)
+    - `DOCS_DIR`: Directory to load documents from (default: `./docs`)
+    - `CHROMA_PATH`: Path to vector database (default: `./chroma_db`)
+    - `EMBEDDING_MODEL`: HuggingFace embedding model (default: `all-MiniLM-L6-v2`)
 
 ## Usage
 
@@ -28,15 +39,15 @@ This project implements a Retrieval-Augmented Generation (RAG) system using Stre
     ```bash
     streamlit run app.py
     ```
-2.  **Upload Documents**: Use the sidebar to upload PDF or Text files (e.g., `Лабораторні роботи 3-4.pdf`).
-3.  **Process**: Click "Process Documents" to ingest them into the vector database.
-4.  **Chat**: Ask questions in the main chat interface.
-5.  **View Context**: Expand "View Retrieved Context & Scores" to see what the model is reading.
+2.  **Ingest Documents**:
+    *   **Option A**: Upload PDF/Text files via the sidebar.
+    *   **Option B**: Place files in the `./docs` folder and click "Load from ./docs".
+3.  **Chat**: Ask questions in the main chat interface.
+4.  **View Context**: Expand "View Retrieved Context & Scores" to see what the model is reading and the similarity scores.
 
 ## Evaluation
 
-To run the evaluation script:
+To run the evaluation script (uses settings from `.env`):
 ```bash
 python evaluate.py
 ```
-This will run a set of predefined questions against your loaded vector database.
