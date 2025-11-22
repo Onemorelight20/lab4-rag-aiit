@@ -6,10 +6,10 @@ from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 from dotenv import load_dotenv
+import hashlib
 
 load_dotenv()
 
-# Configuration
 CHROMA_PATH = os.getenv("CHROMA_PATH", "./chroma_db")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
@@ -65,12 +65,9 @@ class VectorStoreManager:
     def add_documents(self, documents: List[Document]):
         """Add documents to the vector store."""
         store = self.get_vector_store()
-        store.add_documents(documents)
-
-    def similarity_search(self, query: str, k: int = 3) -> List[Document]:
-        """Search for similar documents."""
-        store = self.get_vector_store()
-        return store.similarity_search(query, k=k)
+        # Generate unique IDs based on content hash to prevent duplicates
+        ids = [hashlib.md5(doc.page_content.encode('utf-8')).hexdigest() for doc in documents]
+        store.add_documents(documents, ids=ids)
     
     def similarity_search_with_score(self, query: str, k: int = 3):
         """Search for similar documents with scores."""

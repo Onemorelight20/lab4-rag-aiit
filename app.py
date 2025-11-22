@@ -2,31 +2,30 @@ import streamlit as st
 import os
 import tempfile
 from rag_core import DocumentProcessor, VectorStoreManager
-from langchain_ollama import ChatOllama
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
+from rag_engine import RAGSystem
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuration
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
 DOCS_DIR = os.getenv("DOCS_DIR", "./docs")
 
-# Page config
 st.set_page_config(page_title="Lab 4: RAG System", layout="wide")
 
-# Initialize session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "vector_store_ready" not in st.session_state:
     st.session_state.vector_store_ready = False
 
+if "rag_system" not in st.session_state:
+    st.session_state.rag_system = RAGSystem(model_name=LLM_MODEL)
+
 # Sidebar
 with st.sidebar:
     st.header("Settings")
+    # We can allow model selection if we want to re-init the system, 
+    # but for now let's stick to the env var or simple selection that updates the instance
     model_name = st.selectbox("Select Model", [LLM_MODEL], index=0)
     
     system_prompt = st.text_area(
@@ -34,6 +33,7 @@ with st.sidebar:
         value="Answer the question based only on the following context:",
         height=100
     )
+    st.session_state.rag_system.set_system_prompt(system_prompt)
     
     st.divider()
     st.header("Document Ingestion")
@@ -114,35 +114,16 @@ if prompt := st.chat_input("Ask a question about your documents..."):
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
         else:
-            vector_manager = VectorStoreManager()
-            retriever = vector_manager.get_vector_store().as_retriever(search_kwargs={"k": 3})
-            
-            llm = ChatOllama(model=model_name)
-            
-            template = system_prompt + """
-            {context}
-            
-            Question: {question}
-            
-            Answer:"""
-            
-            prompt_template = ChatPromptTemplate.from_template(template)
-            
-            def format_docs(docs):
-                return "\n\n".join([d.page_content for d in docs])
-            
-            rag_chain = (
-                {"context": retriever | format_docs, "question": RunnablePassthrough()}
-                | prompt_template
-                | llm
-                | StrOutputParser()
-            )
-            
             response_placeholder = st.empty()
             full_response = ""
             
+            response_stream, docs_and_scores = st.session_state.rag_system.generate_response(
+                prompt, 
+                history=st.session_state.messages[:-1]
+            )
+            
             # Stream response
-            for chunk in rag_chain.stream(prompt):
+            for chunk in response_stream:
                 full_response += chunk
                 response_placeholder.markdown(full_response + "▌")
             
@@ -151,9 +132,10 @@ if prompt := st.chat_input("Ask a question about your documents..."):
 
             # Show retrieved context with scores
             with st.expander("View Retrieved Context & Scores"):
-                # Get docs with scores
-                docs_and_scores = vector_manager.get_vector_store().similarity_search_with_score(prompt, k=3)
                 for i, (doc, score) in enumerate(docs_and_scores):
+                    source = doc.metadata.get("source", "Unknown")
                     st.markdown(f"**Source {i+1} (Score: {score:.4f}):**")
+                    st.markdown(f"*File: {source}*")
                     st.markdown(doc.page_content)
                     st.divider()
+
